@@ -559,14 +559,6 @@ Adjust in `configs/config.yaml`:
 - `batch_size`: Larger batches for ClickHouse writes
 - `batch_timeout`: Adjust for latency vs throughput tradeoff
 
-## 📖 Additional Resources
-
-- [PRD.md](PRD.md) - Detailed Product Requirements Document
-- [TASKS.md](TASKS.md) - Implementation task checklist (48 tasks)
-- [ClickHouse Documentation](https://clickhouse.com/docs)
-- [Kafka Documentation](https://kafka.apache.org/documentation/)
-- [Server-Sent Events Spec](https://html.spec.whatwg.org/multipage/server-sent-events.html)
-
 ## 🤝 Contributing
 
 This is a technical demonstration project for interview/learning purposes. Feel free to extend it with:
@@ -578,17 +570,13 @@ This is a technical demonstration project for interview/learning purposes. Feel 
 - Multi-region deployment
 - A/B testing framework for delay policies
 
-## 📝 License
-
-MIT License - See LICENSE file for details
-
 ## 🙏 Acknowledgments
 
 Inspired by real-world notification systems from LinkedIn, Naukri, and other professional networking platforms.
 
 ---
 
-**Built with**: Go • Kafka • ClickHouse • Docker • Prometheus • Grafana
+**Built with**: Go • Kafka • ClickHouse • Docker • Grafana
 
 **Author**: Built for technical interview demonstration
 
