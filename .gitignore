@@ -1,0 +1,83 @@
+# Binaries
+bin/
+*.exe
+*.dll
+*.so
+*.dylib
+
+# Test binary, built with `go test -c`
+*.test
+
+# Output of the go coverage tool
+*.out
+coverage.html
+
+# Go workspace file
+go.work
+
+# Dependency directories
+vendor/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# Logs
+*.log
+logs/
+
+# Benchmark results
+benchmarks/results/*.json
+benchmarks/results/*.csv
+benchmarks/results/*.html
+
+# Profiling
+*.prof
+*.pprof
+
+# Docker volumes
+docker/volumes/
+
+# ClickHouse data
+clickhouse-data/
+
+# Kafka data
+kafka-data/
+zookeeper-data/
+
+# Prometheus data
+prometheus-data/
+
+# Grafana data
+grafana-data/
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+
+# Build artifacts
+dist/
+build/
+
+# OS
+Thumbs.db
+.DS_Store
+
+# Application configs (keep examples)
+configs/config.yaml
+!configs/config.example.yaml
+
+# Certificates
+*.pem
+*.key
+*.crt

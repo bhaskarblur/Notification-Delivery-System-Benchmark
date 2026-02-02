@@ -1,0 +1,226 @@
+version: '3.8'
+
+# Notification Delivery System - Complete Stack
+# Infrastructure + Services
+# Usage: 
+#   Full stack: docker compose up -d
+#   Infra only: docker compose up -d zookeeper kafka clickhouse
+
+services:
+  # Zookeeper for Kafka
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.5.0
+    hostname: zookeeper
+    container_name: zookeeper
+    ports:
+      - "2181:2181"
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    volumes:
+      - zookeeper-data:/var/lib/zookeeper/data
+      - zookeeper-logs:/var/lib/zookeeper/log
+    networks:
+      - notif-network
+    healthcheck:
+      test: ["CMD", "nc", "-z", "localhost", "2181"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Kafka
+  kafka:
+    image: confluentinc/cp-kafka:7.5.0
+    hostname: kafka
+    container_name: kafka
+    depends_on:
+      zookeeper:
+        condition: service_healthy
+    ports:
+      - "9092:9092"
+      - "19092:19092"
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: 'zookeeper:2181'
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:19092,PLAINTEXT_HOST://localhost:9092
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: 'true'
+      KAFKA_LOG_RETENTION_HOURS: 168
+      KAFKA_LOG_SEGMENT_BYTES: 1073741824
+      KAFKA_COMPRESSION_TYPE: 'snappy'
+    volumes:
+      - kafka-data:/var/lib/kafka/data
+    networks:
+      - notif-network
+    healthcheck:
+      test: ["CMD", "kafka-broker-api-versions", "--bootstrap-server", "localhost:9092"]
+      interval: 10s
+      timeout: 10s
+      retries: 5
+
+  # PostgreSQL (Optimized for OLTP workload)
+  postgres:
+    image: postgres:16-alpine
+    hostname: postgres
+    container_name: postgres
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_DB: notifications
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: admin123
+      PGDATA: /var/lib/postgresql/data/pgdata
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./scripts/postgres-schema.sql:/docker-entrypoint-initdb.d/01-schema.sql
+    networks:
+      - notif-network
+    command:
+      - "postgres"
+      - "-c"
+      - "shared_buffers=256MB"
+      - "-c"
+      - "work_mem=16MB"
+      - "-c"
+      - "maintenance_work_mem=128MB"
+      - "-c"
+      - "effective_cache_size=1GB"
+      - "-c"
+      - "wal_buffers=16MB"
+      - "-c"
+      - "max_wal_size=2GB"
+      - "-c"
+      - "checkpoint_completion_target=0.9"
+      - "-c"
+      - "random_page_cost=1.1"
+      - "-c"
+      - "effective_io_concurrency=200"
+      - "-c"
+      - "max_connections=200"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U admin -d notifications"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # Notification Service (Go application)
+  # Start with: docker compose --profile full up -d
+  notification-service:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.notification
+    hostname: notification-service
+    container_name: service
+    depends_on:
+      kafka:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+    ports:
+      - "8080:8080"
+      - "6060:6060"  # pprof
+    environment:
+      CONFIG_PATH: /app/configs/config.yaml
+      KAFKA_BROKERS: kafka:19092
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_DATABASE: notifications
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: admin123
+      LOG_LEVEL: info
+      MAX_SSE_CONNECTIONS: 10000
+    volumes:
+      - ./configs:/app/configs
+    networks:
+      - notif-network
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 2G
+        reservations:
+          cpus: '1'
+          memory: 1G
+
+  # Job Service (Event Producer)
+  job-service:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.services
+      args:
+        SERVICE_NAME: job-service
+    hostname: job-service
+    container_name: job-service
+    depends_on:
+      kafka:
+        condition: service_healthy
+    environment:
+      KAFKA_BROKERS: kafka:19092
+      KAFKA_TOPIC: notifications
+      EVENT_RATE: 500  # events per second
+      NUM_USERS: 100000
+    networks:
+      - notif-network
+    restart: unless-stopped
+
+  # Connections Service (Event Producer)
+  connections-service:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.services
+      args:
+        SERVICE_NAME: connections-service
+    hostname: connections-service
+    container_name: connections-service
+    depends_on:
+      kafka:
+        condition: service_healthy
+    environment:
+      KAFKA_BROKERS: kafka:19092
+      KAFKA_TOPIC: notifications
+      EVENT_RATE: 300  # events per second
+      NUM_USERS: 100000
+    networks:
+      - notif-network
+    restart: unless-stopped
+
+  # Followers Service (Event Producer)
+  followers-service:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.services
+      args:
+        SERVICE_NAME: followers-service
+    hostname: followers-service
+    container_name: followers-service
+    depends_on:
+      kafka:
+        condition: service_healthy
+    environment:
+      KAFKA_BROKERS: kafka:19092
+      KAFKA_TOPIC: notifications
+      EVENT_RATE: 400  # events per second
+      NUM_USERS: 100000
+    networks:
+      - notif-network
+    restart: unless-stopped
+
+networks:
+  notif-network:
+    driver: bridge
+    name: notification-network
+
+volumes:
+  zookeeper-data:
+    name: notif-zookeeper-data
+  zookeeper-logs:
+    name: notif-zookeeper-logs
+  kafka-data:
+    name: notif-kafka-data
+  postgres-data:
+    name: notif-postgres-data
