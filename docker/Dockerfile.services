@@ -1,0 +1,45 @@
+# Multi-stage build for Event Producer Services
+FROM golang:1.24-bookworm AS builder
+
+# Service name argument (job-service, connections-service, followers-service)
+ARG SERVICE_NAME
+
+# Install dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    git \
+    make \
+    gcc \
+    libc6-dev \
+    ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
+# Set working directory
+WORKDIR /app
+
+# Copy go mod files
+COPY go.mod go.sum ./
+RUN go mod download
+
+# Copy source code
+COPY . .
+
+# Build the specific service with CGO disabled (pure Go Kafka library)
+RUN CGO_ENABLED=0 GOOS=linux go build -a -ldflags='-w -s' -o /service ./cmd/${SERVICE_NAME}/main.go
+
+# Final stage
+FROM debian:bookworm-slim
+
+ARG SERVICE_NAME
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    ca-certificates \
+    tzdata \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+# Copy binary from builder
+COPY --from=builder /service /app/service
+
+# Run the application
+ENTRYPOINT ["/app/service"]
