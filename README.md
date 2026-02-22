@@ -131,8 +131,6 @@ make stop
 ## 📖 Documentation
 
 - **[PERFORMANCE_RESULTS.md](PERFORMANCE_RESULTS.md)** - ⭐ Benchmark results and optimization analysis
-- **[LINKEDIN_POST.md](LINKEDIN_POST.md)** - Share this project on LinkedIn
-- **[MAKEFILE_GUIDE.md](MAKEFILE_GUIDE.md)** - Complete Makefile command reference
 - **[ARCHITECTURE_SUMMARY.md](ARCHITECTURE_SUMMARY.md)** - Design philosophy
 - **[DISTRIBUTED_PROCESSING_DESIGN.md](DISTRIBUTED_PROCESSING_DESIGN.md)** - Distributed locking details
 - **[DUAL_WORKER_POOL_ARCHITECTURE.md](DUAL_WORKER_POOL_ARCHITECTURE.md)** - Worker pool internals
